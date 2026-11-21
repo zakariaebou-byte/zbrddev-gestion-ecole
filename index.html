@@ -125,37 +125,39 @@ async function pushStudent(s){
   try{await sbFetch('/rest/v1/students',{method:'POST',body:JSON.stringify(body)});flash('Élève synchronisé Supabase ✅')}catch(e){flash('Ajouté en local, sync à réessayer');console.log('pushStudent error',e)}
 }
 async function syncAll(){
-  flash('Synchronisation en cours...');
+  flash('Telechargement depuis Supabase...');
   try{
     let code=schoolCode(); let rows=[];
     try{ rows=await sbFetch('/rest/v1/students?select=*&school_code=eq.'+encodeURIComponent(code)); }catch(e){ rows=[]; }
     if(!rows || !rows.length){ rows=await sbFetch('/rest/v1/students?select=*&order=created_at'); }
-    let localBefore=(DB.eleves||[]).slice();
     if(rows && rows.length){
       let mapped = rows.map(r=>{
         let ln=(r.last_name||'').trim(), fn=(r.first_name||r.prenom||'').trim();
         let nm=(r.name||'').trim();
         if(!ln && nm){ let parts=nm.split(/\s+/); ln=parts[0]; fn=parts.slice(1).join(' '); }
-        if(!fn && ln && nm && nm!==ln){ fn=nm.replace(ln,'').trim(); }
-        return {n:ln||nm, prenom:fn, gender:r.gender||'', c:r.class||r.classe||'6ème A', p:r.parent_name||r.parent||'—', t:r.parent_phone||'—', t2:r.parent2_contact||r.parent_phone2||'', email:r.parent_email||'', cin:r.parent_cin||'', rel:r.parent_relation||'', rem:r.remarks||'', dob:r.birth_date||''};
+        return {n:ln||nm, prenom:fn, gender:r.gender||'', c:r.class||r.classe||'6\u00e8me A', p:r.parent_name||r.parent||'--', t:r.parent_phone||'--', t2:r.parent2_contact||r.parent_phone2||'', email:r.parent_email||'', cin:r.parent_cin||'', rel:r.parent_relation||'', rem:r.remarks||'', dob:r.birth_date||''};
       });
-      // Dédoublonnage : "karim Test" == "Test karim" -> on garde 1 seul
       let seen={}; DB.eleves=[];
-      for(let s of mapped){ let key=(s.n+' '+s.prenom).toLowerCase().split(/\s+/).sort().join(' '); if(!seen[key]){ seen[key]=1; DB.eleves.push(s); } }
-      // Re-envoie les élèves locaux absents de Supabase (ex: Test Final)
-      for(let s of localBefore){
-        let key=(s.n+' '+s.prenom).toLowerCase().split(/\s+/).sort().join(' ');
-        let exists=DB.eleves.some(x=>((x.n+' '+x.prenom).toLowerCase().split(/\s+/).sort().join(' ')===key));
-        if(!exists){ DB.eleves.push(s); await pushStudent(s); }
+      for(let s of mapped){
+        let key = (s.t && s.t!=='--') ? ('tel:'+s.t.replace(/\s/g,'')) : ('nom:'+(s.n+' '+s.prenom).toLowerCase().split(/\s+/).sort().join(' '));
+        if(!seen[key]){ seen[key]=1; DB.eleves.push(s); }
       }
-      save(); show(idx); flash('✅ Synchronisé : '+DB.eleves.length+' élèves');
-    } else { flash('Supabase vide pour ce code — rien à télécharger'); }
+      save(); show(idx); flash('Telecharge : '+DB.eleves.length+' eleves');
+    } else { flash('Supabase vide - rien a telecharger, locaux gardes'); }
   }catch(e){ flash('Erreur sync : '+String(e).slice(0,120)); console.log(e); }
 }
+async function pushAllLocal(){
+  flash('Envoi vers Supabase...');
+  let n=0;
+  for(let s of (DB.eleves||[])){ await pushStudent(s); n++; }
+  flash('Envoye : '+n+' eleves vers Supabase');
+}
+window.pushAllLocal=pushAllLocal;
+
 window.pushStudent=pushStudent; window.syncAll=syncAll;
 // Boutons fixes en bas
-(function(){let d=document.createElement('div');d.style.cssText='position:fixed;left:10px;bottom:10px;z-index:9999;display:flex;gap:8px;flex-wrap:wrap';d.innerHTML='<button onclick="syncAll()" style="background:#16a34a;color:#fff;border:0;padding:12px 16px;border-radius:999px;font-weight:700">🔄 Tout synchroniser</button><button onclick="let c=prompt(\'Code école\',schoolCode());if(c){localStorage.setItem(\'zbrd_school_code\',c);syncAll()}" style="background:#0f2a5c;color:#fff;border:0;padding:12px 16px;border-radius:999px;font-weight:700">🏫 '+schoolCode()+' • Changer</button>';document.body.appendChild(d);})();
+(function(){let d=document.createElement('div');d.style.cssText='position:fixed;left:10px;bottom:10px;z-index:9999;display:flex;gap:8px;flex-wrap:wrap';d.innerHTML='<button onclick="syncAll()" style="background:#16a34a;color:#fff;border:0;padding:12px 16px;border-radius:999px;font-weight:700">⬇️ Télécharger</button><button onclick="let c=prompt(\'Code école\',schoolCode());if(c){localStorage.setItem(\'zbrd_school_code\',c);syncAll()}" style="background:#0f2a5c;color:#fff;border:0;padding:12px 16px;border-radius:999px;font-weight:700">⬆️ Envoyer vers Supabase</button><button onclick="pushAllLocal()" style="display:none">X</button><button onclick="syncAll()" style="display:none">Y</button><button style="background:#0ea5e9;color:#fff;border:0;padding:12px 16px;border-radius:999px;font-weight:700" onclick="pushAllLocal()">🏫 '+schoolCode()+' • Changer</button>';document.body.appendChild(d);})();
 // Téléchargement automatique au démarrage
-setTimeout(syncAll,1200);
+// pas de sync auto
 </script>
-</body></html>
+</body></html><script>(function(){let b=document.createElement('button');b.textContent='⬆️ Envoyer vers Supabase';b.style.cssText='position:fixed;left:10px;bottom:70px;z-index:9999;background:#0ea5e9;color:#fff;border:0;padding:12px 16px;border-radius:999px;font-weight:700';b.onclick=()=>pushAllLocal();document.body.appendChild(b);})();</script>
