@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Z-BrD DeV - Gestion Ecole</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f3f4f6;color:#111}
+header{background:#0f2a5a;color:#fff;padding:14px 16px;display:flex;align-items:center;gap:12px}
+.logo{font-size:34px;font-weight:900;letter-spacing:1px}.logo span{color:#facc15}
+.sub{font-size:12px;opacity:.9}nav{display:flex;gap:8px;flex-wrap:wrap;padding:12px;background:#fff;border-bottom:1px solid #ddd}
+nav button{border:1px solid #ddd;background:#fff;padding:9px 12px;border-radius:999px;cursor:pointer;font-weight:700}
+nav button.active{background:#0f2a5a;color:#fff}main{padding:14px;max-width:1100px;margin:auto}
+.card{background:#fff;border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 2px 10px rgba(0,0,0,.06)}
+h2{margin:0 0 10px}label{font-size:13px;font-weight:700}input,select,textarea{width:100%;padding:10px;border:1px solid #ddd;border-radius:10px;margin:5px 0 10px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.btn{background:#0f2a5a;color:#fff;border:0;padding:11px 14px;border-radius:10px;font-weight:800;cursor:pointer}
+.btn2{background:#facc15;color:#111}.item{border:1px solid #eee;border-radius:10px;padding:10px;margin:8px 0;display:flex;justify-content:space-between;gap:8px}
+.small{font-size:12px;color:#666}.hidden{display:none}.badge{background:#eef2ff;padding:4px 8px;border-radius:999px;font-size:12px}
+footer{text-align:center;padding:20px;font-size:13px;color:#555}
+@media(max-width:600px){.row{grid-template-columns:1fr}.logo{font-size:28px}}
+</style></head>
+<body>
+<header><div><div class="logo">Z-BrD <span>DeV</span></div><div class="sub">Gestion Ecole • groupezbrddev@gmail.com • +212780717090 • +212700797880</div></div></header>
+<nav id="nav"></nav>
+<main>
+<div class="card" id="configCard"><h2>⚙️ Connexion Supabase</h2><p class="small">Colle ici ton Project URL et ta clé anon (que tu as dans ton Bloc-notes). Elle reste dans ton navigateur.</p>
+<div class="row"><div><label>Project URL</label><input id="sbUrl" placeholder="https://xxxx.supabase.co"></div><div><label>Anon Key</label><input id="sbKey" placeholder="eyJ... ou sb_publishable_..."></div></div>
+<button class="btn" onclick="saveCfg()">Enregistrer la connexion</button> <span id="cfgState" class="badge">Non connectée</span></div>
+
+<section data-page="etablissement" class="card"><h2>🏫 Établissement</h2>
+<div class="row"><div><label>Nom de l'établissement</label><input id="school_name" placeholder="Ex: Ecole Al Noor"></div><div><label>Ville</label><input id="school_city" placeholder="Casablanca"></div></div>
+<label>Adresse</label><input id="school_address" placeholder="Adresse"><label>Téléphone</label><input id="school_phone" placeholder="+212...">
+<button class="btn" onclick="saveSchool()">Enregistrer l'établissement</button><div id="schoolList"></div></section>
+
+<section data-page="classes" class="card hidden"><h2>📚 Classes</h2><div class="row"><div><label>Nom de la classe</label><input id="class_name" placeholder="Ex: 1ère Année"></div><div><label>Niveau</label><input id="class_level" placeholder="Primaire"></div></div>
+<button class="btn" onclick="addClass()">Ajouter la classe</button><div id="classList"></div></section>
+
+<section data-page="eleves" class="card hidden"><h2>👧👦 Élèves + Parents</h2>
+<div class="row"><div><label>Nom complet de l'élève</label><input id="st_name"></div><div><label>Classe</label><select id="st_class"></select></div></div>
+<div class="row"><div><label>Nom du parent</label><input id="st_parent"></div><div><label>Téléphone du parent</label><input id="st_phone"></div></div>
+<button class="btn" onclick="addStudent()">Ajouter l'élève</button><div id="studentList"></div></section>
+
+<section data-page="devoirs" class="card hidden"><h2>📝 Devoirs</h2><label>Titre</label><input id="hw_title"><label>Description</label><textarea id="hw_desc"></textarea>
+<label>Date</label><input id="hw_date" type="date"><button class="btn" onclick="addHw()">Ajouter le devoir</button><div id="hwList"></div></section>
+
+<section data-page="absences" class="card hidden"><h2>📅 Absences</h2><label>Élève</label><select id="ab_student"></select><label>Date</label><input id="ab_date" type="date"><label>Motif</label><input id="ab_reason">
+<button class="btn" onclick="addAbs()">Ajouter l'absence</button><div id="abList"></div></section>
+
+<section data-page="annonces" class="card hidden"><h2>📢 Annonces</h2><label>Titre</label><input id="an_title"><label>Message</label><textarea id="an_msg"></textarea>
+<button class="btn" onclick="addAn()">Publier l'annonce</button><div id="anList"></div></section>
+
+<section data-page="activites" class="card hidden"><h2>🎉 Activités</h2><label>Nom de l'activité</label><input id="ac_title"><label>Date</label><input id="ac_date" type="date">
+<button class="btn" onclick="addAc()">Ajouter l'activité</button><div id="acList"></div></section>
+
+<section data-page="parametres" class="card hidden"><h2>⚙️ Paramètres</h2><p>Marque <b>Z-BrD DeV</b> toujours affichée. Contact officiel : <b>groupezbrddev@gmail.com</b><br>Développeur PDG : <b>+212780717090</b> • <b>+212700797880</b></p>
+<p class="small">Les données sont enregistrées dans ta base Supabase (tables : schools, classes, students, homeworks, absences, announcements, activities, school_settings) si la connexion est remplie, sinon en local sur cet appareil.</p>
+<button class="btn btn2" onclick="exportData()">Exporter mes données</button></section>
+</main>
+<footer><b>Z-BrD DeV</b> • Gestion Ecole • groupezbrddev@gmail.com</footer>
+<script>
+const pages=[["etablissement","🏫 Établissement"],["classes","📚 Classes"],["eleves","👧👦 Élèves"],["devoirs","📝 Devoirs"],["absences","📅 Absences"],["annonces","📢 Annonces"],["activites","🎉 Activités"],["parametres","⚙️ Paramètres"]];
+let cur="etablissement";let sb=null;
+const nav=document.getElementById("nav");
+pages.forEach(p=>{let b=document.createElement("button");b.textContent=p[1];b.onclick=()=>show(p[0]);b.id="nav-"+p[0];nav.appendChild(b)});
+function show(p){cur=p;document.querySelectorAll("[data-page]").forEach(s=>s.classList.toggle("hidden",s.dataset.page!==p));document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active",b.id==="nav-"+p))}
+function getCfg(){return{url:localStorage.getItem("zbrd_url")||"",key:localStorage.getItem("zbrd_key")||""}}
+function saveCfg(){let u=document.getElementById("sbUrl").value.trim().replace(/\/rest\/v1\/?$/,"").replace(/\/$/,"");let k=document.getElementById("sbKey").value.trim();localStorage.setItem("zbrd_url",u);localStorage.setItem("zbrd_key",k);initSb();alert("Connexion enregistrée !")}
+function initSb(){let c=getCfg();document.getElementById("sbUrl").value=c.url;document.getElementById("sbKey").value=c.key;if(c.url&&c.key&&window.supabase){try{sb=window.supabase.createClient(c.url,c.key);document.getElementById("cfgState").textContent="Connectée ✓"}catch(e){sb=null}}loadAll()}
+function esc(s){return String(s||"").replace(/</g,"&lt;")}
+async function db(table,rows){if(!sb)return null;let r=await sb.from(table).insert(rows).select();if(r.error){alert("Supabase : "+r.error.message);return null}return r.data}
+async function loadAll(){let c=getCfg();if(sb){for(let t of ["schools","classes","students","homeworks","absences","announcements","activities"]){let r=await sb.from(t).select("*").order("created_at",{ascending:false});window["DB_"+t]=r.data||[]}}else{for(let t of ["schools","classes","students","homeworks","absences","announcements","activities"]){try{window["DB_"+t]=JSON.parse(localStorage.getItem("local_"+t)||"[]")}catch(e){window["DB_"+t]=[]}}}
+render()}
+function localAdd(t,obj){let a=JSON.parse(localStorage.getItem("local_"+t)||"[]");a.unshift(obj);localStorage.setItem("local_"+t,JSON.stringify(a));loadAll()}
+async function saveSchool(){let o={name:v("school_name"),city:v("school_city"),address:v("school_address"),phone:v("school_phone")};if(!o.name)return alert("Écris le nom");if(sb)await db("schools",[o]);else localAdd("schools",o);alert("Établissement enregistré")}
+async function addClass(){let o={name:v("class_name"),level:v("class_level")};if(!o.name)return alert("Écris la classe");if(sb)await db("classes",[o]);else localAdd("classes",o);loadAll()}
+async function addStudent(){let o={full_name:v("st_name"),class_name:v("st_class"),parent_name:v("st_parent"),parent_phone:v("st_phone")};if(!o.full_name)return alert("Écris le nom");if(sb)await db("students",[o]);else localAdd("students",o);loadAll()}
+async function addHw(){let o={title:v("hw_title"),description:v("hw_desc"),due_date:v("hw_date")};if(sb)await db("homeworks",[o]);else localAdd("homeworks",o);loadAll()}
+async function addAbs(){let o={student_name:v("ab_student"),date:v("ab_date"),reason:v("ab_reason")};if(sb)await db("absences",[o]);else localAdd("absences",o);loadAll()}
+async function addAn(){let o={title:v("an_title"),message:v("an_msg")};if(sb)await db("announcements",[o]);else localAdd("announcements",o);loadAll()}
+async function addAc(){let o={title:v("ac_title"),date:v("ac_date")};if(sb)await db("activities",[o]);else localAdd("activities",o);loadAll()}
+function v(id){return document.getElementById(id).value.trim()}
+function render(){let cl=window.DB_classes||[];document.getElementById("classList").innerHTML=cl.map(x=>`<div class="item"><b>${esc(x.name)}</b><span>${esc(x.level||"")}</span></div>`).join("")||"<p class='small'>Aucune classe.</p>";
+document.getElementById("st_class").innerHTML=cl.map(x=>`<option>${esc(x.name)}</option>`).join("")||"<option>—</option>";
+document.getElementById("schoolList").innerHTML=(window.DB_schools||[]).map(x=>`<div class="item"><b>${esc(x.name)}</b><span>${esc(x.city||"")} • ${esc(x.phone||"")}</span></div>`).join("");
+document.getElementById("studentList").innerHTML=(window.DB_students||[]).map(x=>`<div class="item"><b>${esc(x.full_name)}</b><span>${esc(x.class_name||"")} • Parent: ${esc(x.parent_name||"")} ${esc(x.parent_phone||"")}</span></div>`).join("")||"<p class='small'>Aucun élève.</p>";
+document.getElementById("hwList").innerHTML=(window.DB_homeworks||[]).map(x=>`<div class="item"><b>${esc(x.title)}</b><span>${esc(x.due_date||"")}</span></div>`).join("");
+document.getElementById("abList").innerHTML=(window.DB_absences||[]).map(x=>`<div class="item"><b>${esc(x.student_name)}</b><span>${esc(x.date||"")} • ${esc(x.reason||"")}</span></div>`).join("");
+document.getElementById("anList").innerHTML=(window.DB_announcements||[]).map(x=>`<div class="item"><b>${esc(x.title)}</b><span>${esc(x.message||"")}</span></div>`).join("");
+document.getElementById("acList").innerHTML=(window.DB_activities||[]).map(x=>`<div class="item"><b>${esc(x.title)}</b><span>${esc(x.date||"")}</span></div>`).join("");
+let st=window.DB_students||[];document.getElementById("ab_student").innerHTML=st.map(x=>`<option>${esc(x.full_name)}</option>`).join("")||"<option>—</option>";}
+function exportData(){let d={};for(let t of ["schools","classes","students","homeworks","absences","announcements","activities"])d[t]=window["DB_"+t]||[];let b=new Blob([JSON.stringify(d,null,2)],{type:"application/json"});let a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="zbrddev-donnees.json";a.click()}
+show("etablissement");initSb();
+</script></body></html>
