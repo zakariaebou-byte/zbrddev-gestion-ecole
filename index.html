@@ -121,8 +121,8 @@ const SB_KEY='sb_publishable_KvBOLqvUXl34bV2zgSVRkA_u38z6A1D';
 function schoolCode(){try{return localStorage.getItem('zbrd_school_code')||'DEMO-2026'}catch(e){return 'DEMO-2026'}}
 async function sbFetch(path,opt){opt=opt||{};opt.headers=Object.assign({'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=representation'},opt.headers||{});let r=await fetch(SB_URL+path,opt);let txt=await r.text();let j=null;try{j=JSON.parse(txt)}catch(e){} if(!r.ok) throw new Error(txt.slice(0,300)); return j;}
 async function pushStudent(s){
-  let body={school_code:schoolCode(), school:schoolCode(), first_name:s.prenom||null, last_name:s.n||null, name:(s.n+' '+(s.prenom||'')).trim(), prenom:s.prenom||null, gender:s.gender||null, birth_date:s.dob||null, class:s.c||'6ème A', classe:s.c||'6ème A', parent:s.p||null, parent_name:s.p||null, parent_phone:s.t||null, parent2_contact:s.t2||null, parent_email:s.email||null, parent_cin:s.cin||null, parent_relation:s.rel||null, remarks:s.rem||null, address:s.rem||null};
-  try{await sbFetch('/rest/v1/students',{method:'POST',body:JSON.stringify(body)});flash('Élève synchronisé Supabase ✅')}catch(e){flash('Ajouté en local, sync à réessayer');console.log('pushStudent error',e)}
+  let body={school_code:schoolCode(), school:schoolCode(), first_name:s.prenom||null, last_name:s.n||null, name:(s.n+' '+(s.prenom||'')).trim(), prenom:s.prenom||null, gender:s.gender||null, birth_date:s.dob||null, class:s.c||'6ème A',  parent:s.p||null, parent_name:s.p||null, parent_phone:s.t||null, parent2_contact:s.t2||null, parent_email:s.email||null, parent_cin:s.cin||null, parent_relation:s.rel||null, remarks:s.rem||null, address:s.rem||null};
+  try{await sbFetch('/rest/v1/students',{method:'POST',body:JSON.stringify(body)});flash('Élève synchronisé Supabase ✅')}catch(e){flash('Erreur envoi : '+String(e).slice(0,100));console.log('pushStudent error',e)}
 }
 async function syncAll(){
   flash('Telechargement depuis Supabase...');
@@ -159,5 +159,44 @@ window.pushStudent=pushStudent; window.syncAll=syncAll;
 (function(){let d=document.createElement('div');d.style.cssText='display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin:8px 0';d.innerHTML='<button onclick="syncAll()" style="background:#16a34a;color:#fff;border:0;padding:6px 10px;border-radius:999px;font-weight:600;font-size:12px">⬇️ Télécharger</button><button onclick="let c=prompt(\'Code école\',schoolCode());if(c){localStorage.setItem(\'zbrd_school_code\',c);syncAll()}" style="background:#0f2a5c;color:#fff;border:0;padding:6px 10px;border-radius:999px;font-weight:600;font-size:12px">⬆️ Envoyer</button><button onclick="pushAllLocal()" style="display:none">X</button><button onclick="syncAll()" style="display:none">Y</button><button style="background:#0ea5e9;color:#fff;border:0;padding:6px 10px;border-radius:999px;font-weight:600;font-size:12px" onclick="pushAllLocal()">🏫 '+schoolCode()+'</button>';let f=document.querySelector('footer'); if(f){f.parentNode.insertBefore(d,f);} else {document.body.appendChild(d);}})();
 // Téléchargement automatique au démarrage
 // pas de sync auto
+</script>
+
+<script>
+// ===== V13 : SYNC UNIVERSEL - 1 table pour tout =====
+async function pushUniversal(){
+  try{
+    let payload={school_code:schoolCode(), module:'all', data:DB, updated_at:new Date().toISOString()};
+    // upsert : on supprime l'ancienne ligne de cette école puis on insère
+    await sbFetch('/rest/v1/zbrd_sync?school_code=eq.'+encodeURIComponent(schoolCode())+'&module=eq.all',{method:'DELETE'});
+    await sbFetch('/rest/v1/zbrd_sync',{method:'POST',body:JSON.stringify(payload)});
+    // École pour le PDG
+    await sbFetch('/rest/v1/zbrd_sync?school_code=eq.'+encodeURIComponent(schoolCode())+'&module=eq.school',{method:'DELETE'});
+    await sbFetch('/rest/v1/zbrd_sync',{method:'POST',body:JSON.stringify({school_code:schoolCode(), module:'school', data:{etab:DB.etab, code:schoolCode(), eleves:DB.eleves.length, classes:DB.classes.length, pay:DB.pay.length, updated_at:new Date().toISOString()}, updated_at:new Date().toISOString()})});
+    return true;
+  }catch(e){ console.log('pushUniversal',e); throw e; }
+}
+async function pullUniversal(){
+  let rows=await sbFetch('/rest/v1/zbrd_sync?select=*&school_code=eq.'+encodeURIComponent(schoolCode())+'&module=eq.all&order=updated_at.desc&limit=1');
+  if(rows && rows.length && rows[0].data){ DB=rows[0].data; save(); show(idx); return true; }
+  return false;
+}
+async function repairAll(){
+  flash('Réparation en cours... ne touche à rien');
+  try{
+    // 1. Dédoublonnage élèves par téléphone ou nom
+    let seen={}; let clean=[];
+    for(let s of (DB.eleves||[])){ let key=(s.t && s.t!=='—')?('tel:'+s.t):('nom:'+(s.n+' '+s.prenom).toLowerCase().split(/\\s+/).sort().join(' ')); if(!seen[key]){seen[key]=1; clean.push(s);} }
+    DB.eleves=clean; save();
+    // 2. Envoi élèves table students (colonnes corrigées)
+    for(let s of DB.eleves){ try{ await pushStudent(s); }catch(e){} }
+    // 3. Envoi TOUT (classes, paiements, notes, absences, devoirs, activités, annonces, établissement, PDG) en 1 fois
+    await pushUniversal();
+    flash('✅ Réparé Tout : '+DB.eleves.length+' élèves + Classes + Paiements + Notes + PDG envoyés');
+    show(idx);
+  }catch(e){ flash('Erreur Réparer Tout : '+String(e).slice(0,120)+'. Vérifie que tu as lancé le SQL zbrd_sync dans Supabase.'); console.log(e); }
+}
+window.repairAll=repairAll; window.pushUniversal=pushUniversal; window.pullUniversal=pullUniversal;
+// Bouton Réparer Tout dans la barre du bas
+(function(){let b=document.createElement('button');b.textContent='🔧 Réparer Tout';b.style.cssText='background:#f59e0b;color:#fff;border:0;padding:6px 10px;border-radius:999px;font-weight:600;font-size:12px';b.onclick=()=>repairAll();let bar=document.querySelector('footer'); if(bar){bar.parentNode.insertBefore(b,bar);} else {document.body.appendChild(b);} })();
 </script>
 </body></html>
