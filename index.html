@@ -132,11 +132,20 @@ async function syncAll(){
     if(!rows || !rows.length){ rows=await sbFetch('/rest/v1/students?select=*&order=created_at'); }
     let localBefore=(DB.eleves||[]).slice();
     if(rows && rows.length){
-      DB.eleves = rows.map(r=>({n:r.last_name||r.name||'',prenom:r.first_name||r.prenom||'',gender:r.gender||'',c:r.class||r.classe||'6ème A',p:r.parent_name||r.parent||'—',t:r.parent_phone||'—',t2:r.parent2_contact||r.parent_phone2||'',email:r.parent_email||'',cin:r.parent_cin||'',rel:r.parent_relation||'',rem:r.remarks||'',dob:r.birth_date||''}));
+      let mapped = rows.map(r=>{
+        let ln=(r.last_name||'').trim(), fn=(r.first_name||r.prenom||'').trim();
+        let nm=(r.name||'').trim();
+        if(!ln && nm){ let parts=nm.split(/\s+/); ln=parts[0]; fn=parts.slice(1).join(' '); }
+        if(!fn && ln && nm && nm!==ln){ fn=nm.replace(ln,'').trim(); }
+        return {n:ln||nm, prenom:fn, gender:r.gender||'', c:r.class||r.classe||'6ème A', p:r.parent_name||r.parent||'—', t:r.parent_phone||'—', t2:r.parent2_contact||r.parent_phone2||'', email:r.parent_email||'', cin:r.parent_cin||'', rel:r.parent_relation||'', rem:r.remarks||'', dob:r.birth_date||''};
+      });
+      // Dédoublonnage : "karim Test" == "Test karim" -> on garde 1 seul
+      let seen={}; DB.eleves=[];
+      for(let s of mapped){ let key=(s.n+' '+s.prenom).toLowerCase().split(/\s+/).sort().join(' '); if(!seen[key]){ seen[key]=1; DB.eleves.push(s); } }
       // Re-envoie les élèves locaux absents de Supabase (ex: Test Final)
       for(let s of localBefore){
-        let key=(s.n+'|'+s.prenom).toLowerCase();
-        let exists=DB.eleves.some(x=>((x.n+'|'+x.prenom).toLowerCase()===key));
+        let key=(s.n+' '+s.prenom).toLowerCase().split(/\s+/).sort().join(' ');
+        let exists=DB.eleves.some(x=>((x.n+' '+x.prenom).toLowerCase().split(/\s+/).sort().join(' ')===key));
         if(!exists){ DB.eleves.push(s); await pushStudent(s); }
       }
       save(); show(idx); flash('✅ Synchronisé : '+DB.eleves.length+' élèves');
