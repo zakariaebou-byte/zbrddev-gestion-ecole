@@ -199,4 +199,43 @@ window.repairAll=repairAll; window.pushUniversal=pushUniversal; window.pullUnive
 // Bouton Réparer Tout dans la barre du bas
 (function(){let b=document.createElement('button');b.textContent='🔧 Réparer Tout';b.style.cssText='background:#f59e0b;color:#fff;border:0;padding:6px 10px;border-radius:999px;font-weight:600;font-size:12px';b.onclick=()=>repairAll();let bar=document.querySelector('footer'); if(bar){bar.parentNode.insertBefore(b,bar);} else {document.body.appendChild(b);} })();
 </script>
+
+<script>
+// ===== V14 SÉCURITÉ =====
+// 1. Nettoyage anti-XSS : on n'injecte jamais du HTML brut venant d'un champ
+window.safeText = function(v){ return String(v==null?'':v).replace(/[<>&"']/g, c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c])); };
+// 2. Verrouillage PDG : 5 essais max, blocage 15 min
+(function(){
+  let k='zbrd_lock'; let d=JSON.parse(localStorage.getItem(k)||'{"n":0,"until":0}');
+  window.pdgCanTry=function(){ if(Date.now()<d.until){ flash('Compte bloqué 15 min après 5 essais. Réessaie plus tard.'); return false; } return true; };
+  window.pdgFail=function(){ d.n++; if(d.n>=5){ d.until=Date.now()+15*60*1000; d.n=0; flash('Trop d\'essais. Bloqué 15 min.'); } localStorage.setItem(k, JSON.stringify(d)); };
+  window.pdgOk=function(){ localStorage.setItem(k, JSON.stringify({n:0,until:0})); };
+})();
+// 3. Masquage données sensibles dans l'affichage : téléphone 06XX...09, CIN AB****56
+window.maskPhone=function(p){ p=String(p||''); if(p.length<4) return '—'; return p.slice(0,4)+'****'+p.slice(-2); };
+window.maskCin=function(c){ c=String(c||''); if(c.length<4) return '—'; return c.slice(0,2)+'****'+c.slice(-2); };
+// 4. Session : déconnexion auto après 30 min d'inactivité
+(function(){ let last=Date.now(); ['click','touchstart','keydown'].forEach(e=>document.addEventListener(e,()=>{last=Date.now();},{passive:true})); setInterval(()=>{ if(Date.now()-last>30*60*1000){ sessionStorage.removeItem('zbrd_pdg'); } },60000); })();
+// 5. Ne jamais logger les données enfants dans la console en production
+(function(){ let orig=console.log; console.log=function(...a){ let s=a.join(' '); if(/prenom|parent|cin|phone|email/i.test(s)) return; orig.apply(console,a); }; })();
+console.log('V14 Sécurité active : XSS + verrouillage + masquage + session 30 min');
+</script>
+
+<script>
+// V14.1 : envoie le code école dans l'en-tête pour la RLS
+(function(){
+  let origFetch = window.fetch;
+  window.fetch = function(url, opts){
+    try{
+      if(String(url).includes('supabase.co')){
+        opts = opts || {}; opts.headers = opts.headers || {};
+        let code = (typeof schoolCode==='function') ? schoolCode() : (localStorage.getItem('zbrd_code')||'DEMO-2026');
+        if(code) opts.headers['x-school-code']=code;
+      }
+    }catch(e){}
+    return origFetch(url, opts);
+  };
+  console.log('V14.1 header x-school-code actif');
+})();
+</script>
 </body></html>
