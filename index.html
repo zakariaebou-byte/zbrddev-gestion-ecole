@@ -121,20 +121,25 @@ const SB_KEY='sb_publishable_KvBOLqvUXl34bV2zgSVRkA_u38z6A1D';
 function schoolCode(){try{return localStorage.getItem('zbrd_school_code')||'DEMO-2026'}catch(e){return 'DEMO-2026'}}
 async function sbFetch(path,opt){opt=opt||{};opt.headers=Object.assign({'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=representation'},opt.headers||{});let r=await fetch(SB_URL+path,opt);let txt=await r.text();let j=null;try{j=JSON.parse(txt)}catch(e){} if(!r.ok) throw new Error(txt.slice(0,300)); return j;}
 async function pushStudent(s){
-  let body={school_code:schoolCode(),name:s.n,prenom:s.prenom||null,gender:s.gender||null,classe:s.c,parent_name:s.p,parent_phone:s.t,parent_phone2:s.t2||null,parent_email:s.email||null,parent_cin:s.cin||null,parent_relation:s.rel||null,remarks:s.rem||null};
-  try{await sbFetch('/rest/v1/students',{method:'POST',body:JSON.stringify(body)});flash('Élève synchronisé Supabase ✅')}catch(e){flash('Ajouté en local, sync à réessayer (voir console)');console.log('pushStudent error',e)}
+  let body={school_code:schoolCode(), school:schoolCode(), first_name:s.prenom||null, last_name:s.n||null, name:(s.n+' '+(s.prenom||'')).trim(), prenom:s.prenom||null, gender:s.gender||null, birth_date:s.dob||null, class:s.c||'6ème A', classe:s.c||'6ème A', parent:s.p||null, parent_name:s.p||null, parent_phone:s.t||null, parent2_contact:s.t2||null, parent_email:s.email||null, parent_cin:s.cin||null, parent_relation:s.rel||null, remarks:s.rem||null, address:s.rem||null};
+  try{await sbFetch('/rest/v1/students',{method:'POST',body:JSON.stringify(body)});flash('Élève synchronisé Supabase ✅')}catch(e){flash('Ajouté en local, sync à réessayer');console.log('pushStudent error',e)}
 }
 async function syncAll(){
   flash('Synchronisation en cours...');
   try{
     let code=schoolCode(); let rows=[];
     try{ rows=await sbFetch('/rest/v1/students?select=*&school_code=eq.'+encodeURIComponent(code)); }catch(e){ rows=[]; }
-    if(!rows || !rows.length){ // FALLBACK : sans filtre, car les anciens élèves n'ont pas de school_code
-      rows=await sbFetch('/rest/v1/students?select=*&order=created_at');
-    }
+    if(!rows || !rows.length){ rows=await sbFetch('/rest/v1/students?select=*&order=created_at'); }
+    let localBefore=(DB.eleves||[]).slice();
     if(rows && rows.length){
-      DB.eleves = rows.map(r=>({n:r.name||r.nom||'',prenom:r.prenom||'',gender:r.gender||'',c:r.classe||r.class||'6ème A',p:r.parent_name||'—',t:r.parent_phone||'—',t2:r.parent_phone2||'',email:r.parent_email||'',cin:r.parent_cin||'',rel:r.parent_relation||'',rem:r.remarks||''}));
-      save(); show(idx); flash('✅ Synchronisé : '+rows.length+' élèves depuis Supabase');
+      DB.eleves = rows.map(r=>({n:r.last_name||r.name||'',prenom:r.first_name||r.prenom||'',gender:r.gender||'',c:r.class||r.classe||'6ème A',p:r.parent_name||r.parent||'—',t:r.parent_phone||'—',t2:r.parent2_contact||r.parent_phone2||'',email:r.parent_email||'',cin:r.parent_cin||'',rel:r.parent_relation||'',rem:r.remarks||'',dob:r.birth_date||''}));
+      // Re-envoie les élèves locaux absents de Supabase (ex: Test Final)
+      for(let s of localBefore){
+        let key=(s.n+'|'+s.prenom).toLowerCase();
+        let exists=DB.eleves.some(x=>((x.n+'|'+x.prenom).toLowerCase()===key));
+        if(!exists){ DB.eleves.push(s); await pushStudent(s); }
+      }
+      save(); show(idx); flash('✅ Synchronisé : '+DB.eleves.length+' élèves');
     } else { flash('Supabase vide pour ce code — rien à télécharger'); }
   }catch(e){ flash('Erreur sync : '+String(e).slice(0,120)); console.log(e); }
 }
