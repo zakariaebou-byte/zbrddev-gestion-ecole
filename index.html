@@ -116,7 +116,7 @@ function filterEleve(q){q=(q||'').toLowerCase();let list=DB.eleves.filter(e=>e.n
 show(0);
 </script>
 <script>
-/* ===== Z-BrD V16.2 — FIX 3 BLOQUEURS VENTE (sans toucher au reste) =====
+/* ===== Z-BrD V16.3 — FIX ISOLATION TEST-999 (sans toucher au reste) =====
    1) Récupérer répond dans Brave : <button onclick> + fetch + flash, JAMAIS confirm()/prompt()
    2) Code école vraiment obligatoire : overlay qui bloque TOUT tant que le code est vide
    3) Sauvegarde automatique : save() d'origine -> auto-push serveur débouncé + backup local horodaté
@@ -136,6 +136,20 @@ show(0);
     var s=document.getElementById('schoolCodeStatus'); if(s) s.textContent = schoolCode ? ('Code actuel : '+schoolCode+' — Tu travailles sur CETTE école uniquement.') : 'AUCUN CODE — entre ton code pour débloquer l’application.';
     var inp=document.getElementById('schoolCodeInput'); if(inp && !inp.value) inp.value = schoolCode;
   }
+  function emptyDB(){ return {eleves:[],classes:[],devoirs:[],notes:[],abs:[],pay:[],act:[],ann:[],etab:{nom:'',adr:'',tel:''}}; }
+  function applyIsolationFor(newCode, oldCode){
+    try{
+      if(oldCode && oldCode!==newCode && typeof DB!=='undefined' && DB){ try{ localStorage.setItem('zbrd_db_'+oldCode, JSON.stringify(DB)); }catch(e){} }
+      if(!newCode) return;
+      var k='zbrd_db_'+newCode;
+      var saved=null; try{ saved=JSON.parse(localStorage.getItem(k)||'null'); }catch(e){ saved=null; }
+      if(saved && saved.eleves){ DB=saved; }
+      else if(newCode==='DEMO-2026'){ try{ localStorage.setItem(k, JSON.stringify(DB)); }catch(e){} }
+      else { DB=emptyDB(); try{ localStorage.setItem(k, JSON.stringify(DB)); }catch(e){} }
+      try{ localStorage.setItem('zbrd_final_v10pwa', JSON.stringify(DB)); }catch(e){}
+      if(typeof show==='function'){ try{ show(typeof idx!=='undefined'?idx:0); }catch(e){} }
+    }catch(e){}
+  }
   function showOverlayIfNeeded(){
     var ov=document.getElementById('zbrdGate');
     if(schoolCode){ if(ov) ov.remove(); setLabel(); return; }
@@ -148,8 +162,9 @@ show(0);
     btn.onclick=function(){
       var v=(document.getElementById('gateCode').value||'').trim().toUpperCase();
       if(!v){ document.getElementById('gateMsg').textContent='Écris ton code école.'; return; }
-      schoolCode=v;
+      var _old=schoolCode; schoolCode=v;
       try{ localStorage.setItem('zbrd_school_code', schoolCode); }catch(e){}
+      applyIsolationFor(schoolCode,_old);
       ov.remove(); setLabel();
       if(typeof flash==='function') flash('Code école enregistré ✅ — '+schoolCode);
       doRecover();
@@ -203,20 +218,21 @@ show(0);
     var inp=document.getElementById('schoolCodeInput');
     var v=inp ? (inp.value||'').trim().toUpperCase() : '';
     if(!v){ if(typeof flash==='function') flash('Écris le nouveau code école.'); return; }
-    schoolCode=v;
+    var _old2=schoolCode; schoolCode=v;
     try{ localStorage.setItem('zbrd_school_code', schoolCode); }catch(e){}
-    setLabel();
+    applyIsolationFor(schoolCode,_old2); setLabel();
     if(typeof flash==='function') flash('Code changé ✅ — '+schoolCode+' — Récupération en cours…');
     doRecover();
   };
   /* Sauvegarde automatique : chaque save() d'origine déclenche un auto-push débouncé */
   try{
     var _origSave = save;
-    save = function(){ _origSave(); try{ localStorage.setItem('zbrd_backup_v162', JSON.stringify({code:schoolCode, at:new Date().toISOString(), data: DB})); }catch(e){} if(KEY_OK && schoolCode){ clearTimeout(autoTimer); autoTimer=setTimeout(function(){ pushToCloud().then(function(ok){ lastPush=new Date().toLocaleTimeString(); lastPushOk=ok; }); }, 2000); } };
+    save = function(){ _origSave(); try{ localStorage.setItem('zbrd_backup_v162', JSON.stringify({code:schoolCode, at:new Date().toISOString(), data: DB})); if(schoolCode) localStorage.setItem('zbrd_db_'+schoolCode, JSON.stringify(DB)); }catch(e){} if(KEY_OK && schoolCode){ clearTimeout(autoTimer); autoTimer=setTimeout(function(){ pushToCloud().then(function(ok){ lastPush=new Date().toLocaleTimeString(); lastPushOk=ok; }); }, 2000); } };
   }catch(e){}
   /* Au démarrage : gate obligatoire, puis auto-récupération si code déjà présent */
   showOverlayIfNeeded();
   if(schoolCode){
+    applyIsolationFor(schoolCode,'');
     setLabel();
     /* Ne pas écraser les données locales au 1er chargement si le serveur est vide : pull seulement si clé OK, et il ne remplace que s'il y a une ligne */
     if(KEY_OK){ pullFromCloud().then(function(){ setLabel(); }); }
