@@ -118,7 +118,7 @@ show(0);
 <script>
 const SB_URL='https://rlaskkwqxcjkphuorwxw.supabase.co';
 const SB_KEY='sb_publishable_KvBOLqvUXl34bV2zgSVRkA_u38z6A1D';
-function schoolCode(){try{return localStorage.getItem('zbrd_school_code')||'DEMO-2026'}catch(e){return 'DEMO-2026'}}
+function schoolCode(){ let c=''; try{ c=localStorage.getItem('zbrd_code')||sessionStorage.getItem('zbrd_code')||''; }catch(e){} if(!c){ c=prompt('Entrez votre Code Ecole (ex: DEMO-2026) :')||''; c=c.trim().toUpperCase(); if(c){ try{ localStorage.setItem('zbrd_code',c); }catch(e){} } } return c||'DEMO-2026'; }catch(e){return 'DEMO-2026'}}
 async function sbFetch(path,opt){opt=opt||{};opt.headers=Object.assign({'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=representation'},opt.headers||{});let r=await fetch(SB_URL+path,opt);let txt=await r.text();let j=null;try{j=JSON.parse(txt)}catch(e){} if(!r.ok) throw new Error(txt.slice(0,300)); return j;}
 async function pushStudent(s){
   let body={school_code:schoolCode(), school:schoolCode(), first_name:s.prenom||null, last_name:s.n||null, name:(s.n+' '+(s.prenom||'')).trim(), prenom:s.prenom||null, gender:s.gender||null, birth_date:s.dob||null, class:s.c||'6ème A',  parent:s.p||null, parent_name:s.p||null, parent_phone:s.t||null, parent2_contact:s.t2||null, parent_email:s.email||null, parent_cin:s.cin||null, parent_relation:s.rel||null, remarks:s.rem||null, address:s.rem||null};
@@ -290,5 +290,15 @@ function exporterSauvegarde(){
   if(bar) bar.parentNode.insertBefore(c,bar); else document.body.appendChild(c);
 })();
 window.recupererDonnees=recupererDonnees; window.exporterSauvegarde=exporterSauvegarde;
+</script>
+
+<script>
+// V16.1 : bouton Changer de code toujours visible
+(function(){
+  let b=document.createElement('button'); b.textContent='🔑 Changer de code école';
+  b.style.cssText='background:#fff;color:#0f2a5c;border:2px solid #0f2a5c;padding:8px 12px;border-radius:999px;font-weight:700;font-size:13px;margin:8px auto;display:block';
+  b.onclick=()=>{ let n=prompt('Nouveau Code Ecole :'); if(n){ n=n.trim().toUpperCase(); localStorage.setItem('zbrd_code',n); location.reload(); } };
+  let bar=document.querySelector('footer'); if(bar) bar.parentNode.insertBefore(b,bar); else document.body.appendChild(b);
+})();
 </script>
 </body></html>
