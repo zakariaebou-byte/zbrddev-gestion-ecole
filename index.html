@@ -264,4 +264,31 @@ console.log('V14 Sécurité active : XSS + verrouillage + masquage + session 30 
   });
 })();
 </script>
+
+<script>
+// V16 VENTE : Récupérer + Sauvegarde - d'un seul coup
+async function recupererDonnees(){
+  if(!confirm('Récupérer les données de '+schoolCode()+' depuis le serveur ? Cela remplace les données de ce téléphone.')) return;
+  flash('Récupération en cours...');
+  try{
+    let ok = await pullUniversal();
+    if(ok){ flash('✅ Données récupérées : '+DB.eleves.length+' élèves + Classes + Paiements + Notes'); show(idx); }
+    else { flash('Aucune sauvegarde trouvée pour ce code sur le serveur.'); }
+  }catch(e){ flash('Erreur récupération : '+String(e).slice(0,120)); }
+}
+function exporterSauvegarde(){
+  let blob=new Blob([JSON.stringify({code:schoolCode(), date:new Date().toISOString(), DB:DB},null,2)],{type:'application/json'});
+  let a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='sauvegarde-'+schoolCode()+'-'+new Date().toISOString().slice(0,10)+'.json'; a.click();
+  flash('✅ Sauvegarde téléchargée sur ce téléphone / PC');
+}
+(function(){
+  let bar=document.querySelector('footer');
+  let c=document.createElement('div'); c.style.cssText='display:flex;gap:8px;justify-content:center;padding:8px;flex-wrap:wrap';
+  let b1=document.createElement('button'); b1.textContent='⬇️ Récupérer mes données'; b1.style.cssText='background:#16a34a;color:#fff;border:0;padding:8px 12px;border-radius:999px;font-weight:700;font-size:13px'; b1.onclick=recupererDonnees;
+  let b2=document.createElement('button'); b2.textContent='💾 Sauvegarde'; b2.style.cssText='background:#0f2a5c;color:#fff;border:0;padding:8px 12px;border-radius:999px;font-weight:700;font-size:13px'; b2.onclick=exporterSauvegarde;
+  c.appendChild(b1); c.appendChild(b2);
+  if(bar) bar.parentNode.insertBefore(c,bar); else document.body.appendChild(c);
+})();
+window.recupererDonnees=recupererDonnees; window.exporterSauvegarde=exporterSauvegarde;
+</script>
 </body></html>
