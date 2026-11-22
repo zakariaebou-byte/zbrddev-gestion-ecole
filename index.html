@@ -116,7 +116,7 @@ function filterEleve(q){q=(q||'').toLowerCase();let list=DB.eleves.filter(e=>e.n
 show(0);
 </script>
 <script>
-/* ===== Z-BrD V16.3 — FIX ISOLATION TEST-999 (sans toucher au reste) =====
+/* ===== Z-BrD V16.4 — FIX DEMO APRES TEST-999 (sans toucher au reste) =====
    1) Récupérer répond dans Brave : <button onclick> + fetch + flash, JAMAIS confirm()/prompt()
    2) Code école vraiment obligatoire : overlay qui bloque TOUT tant que le code est vide
    3) Sauvegarde automatique : save() d'origine -> auto-push serveur débouncé + backup local horodaté
@@ -136,6 +136,7 @@ show(0);
     var s=document.getElementById('schoolCodeStatus'); if(s) s.textContent = schoolCode ? ('Code actuel : '+schoolCode+' — Tu travailles sur CETTE école uniquement.') : 'AUCUN CODE — entre ton code pour débloquer l’application.';
     var inp=document.getElementById('schoolCodeInput'); if(inp && !inp.value) inp.value = schoolCode;
   }
+  function demoDB(){ return {eleves:[{n:'Salma Benali',c:'6ème A',p:'Mme Benali',t:'0600000001'},{n:'Youssef El Fassi',c:'5ème B',p:'M. El Fassi',t:'0600000002'},{n:'Imane Kadiri',c:'6ème A',p:'Mme Kadiri',t:'0600000003'},{n:'Adam Berrada',c:'4ème A',p:'M. Berrada',t:'0600000004'}],classes:[{n:'6ème A',e:28,pr:'Mme Alaoui'},{n:'5ème B',e:26,pr:'M. Berrada'},{n:'4ème A',e:30,pr:'Mme Tazi'}],devoirs:[{m:'Maths',t:'Chapitre 5',c:'6ème A',d:'Vendredi'},{m:'Français',t:'Rédaction',c:'5ème B',d:'Lundi'}],notes:[{e:'Salma Benali',m:'Maths',n:16},{e:'Youssef El Fassi',m:'Français',n:14},{e:'Imane Kadiri',m:'Sciences',n:15}],abs:[{e:'Imane Kadiri',d:"Aujourd'hui",mo:'Maladie - Justifiée'}],pay:[{e:'Salma Benali',m:800,s:'Payé'},{e:'Youssef El Fassi',m:800,s:'En attente'},{e:'Imane Kadiri',m:800,s:'En retard'},{e:'Adam Berrada',m:800,s:'Payé'}],act:[{n:'Sport',j:'Mercredi',i:22},{n:'Club Robotique',j:'Vendredi',i:14},{n:'Théâtre',j:'Samedi',i:18}],ann:['Réunion parents — Samedi 10h','Sortie scolaire — Jeudi','Examens — Semaine prochaine'],etab:{nom:'École Démo — Z-BrD DeV',adr:'Casablanca, Maroc',tel:'+212 780 71 70 90'}}; }
   function emptyDB(){ return {eleves:[],classes:[],devoirs:[],notes:[],abs:[],pay:[],act:[],ann:[],etab:{nom:'',adr:'',tel:''}}; }
   function applyIsolationFor(newCode, oldCode){
     try{
@@ -143,8 +144,9 @@ show(0);
       if(!newCode) return;
       var k='zbrd_db_'+newCode;
       var saved=null; try{ saved=JSON.parse(localStorage.getItem(k)||'null'); }catch(e){ saved=null; }
-      if(saved && saved.eleves){ DB=saved; }
-      else if(newCode==='DEMO-2026'){ try{ localStorage.setItem(k, JSON.stringify(DB)); }catch(e){} }
+      if(newCode==='DEMO-2026' && (!saved || !saved.eleves || saved.eleves.length===0)){ DB=demoDB(); try{ localStorage.setItem(k, JSON.stringify(DB)); }catch(e){} }
+      else if(saved && saved.eleves){ DB=saved; }
+      else if(newCode==='DEMO-2026'){ DB=demoDB(); try{ localStorage.setItem(k, JSON.stringify(DB)); }catch(e){} }
       else { DB=emptyDB(); try{ localStorage.setItem(k, JSON.stringify(DB)); }catch(e){} }
       try{ localStorage.setItem('zbrd_final_v10pwa', JSON.stringify(DB)); }catch(e){}
       if(typeof show==='function'){ try{ show(typeof idx!=='undefined'?idx:0); }catch(e){} }
