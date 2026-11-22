@@ -116,14 +116,14 @@ function filterEleve(q){q=(q||'').toLowerCase();let list=DB.eleves.filter(e=>e.n
 show(0);
 </script>
 <script>
-/* ===== Z-BrD V16.4 — FIX DEMO APRES TEST-999 (sans toucher au reste) =====
+/* ===== Z-BrD V16.5 — SERVEUR BRANCHE (clé publisable) (sans toucher au reste) =====
    1) Récupérer répond dans Brave : <button onclick> + fetch + flash, JAMAIS confirm()/prompt()
    2) Code école vraiment obligatoire : overlay qui bloque TOUT tant que le code est vide
    3) Sauvegarde automatique : save() d'origine -> auto-push serveur débouncé + backup local horodaté
 */
 (function(){
   var SUPABASE_URL = 'https://rlaskkwqxcjkphuorwxw.supabase.co';
-  var SUPABASE_KEY = 'REPLACE_WITH_ANON_KEY'; /* <-- À REMPLIR : Supabase → Settings → API → anon key. JAMAIS la clé service_role. Tant que c'est REPLACE..., la sauvegarde locale + auto-backup local marchent, le serveur attend la clé. */
+  var SUPABASE_KEY = 'sb_publishable_KvBOLqvUXl34bV2zgSVRkA_u38z6A1D'; /* <-- À REMPLIR : Supabase → Settings → API → anon key. JAMAIS la clé service_role. Tant que c'est REPLACE..., la sauvegarde locale + auto-backup local marchent, le serveur attend la clé. */
   var SUPABASE_TABLE = 'zbrd_sync';
   var KEY_OK = SUPABASE_KEY && SUPABASE_KEY.indexOf('REPLACE_') !== 0;
   var schoolCode = '';
