@@ -238,4 +238,30 @@ console.log('V14 Sécurité active : XSS + verrouillage + masquage + session 30 
   console.log('V14.1 header x-school-code actif');
 })();
 </script>
+
+<script>
+// V15 FINALE : message Réparer Tout FIXE, ne disparaît plus
+(function(){
+  let origFlash = window.flash;
+  window.flash = function(msg){
+    try{ origFlash(msg); }catch(e){}
+    let el=document.getElementById('zbrd-msg-fixe');
+    if(!el){
+      el=document.createElement('div'); el.id='zbrd-msg-fixe';
+      el.style.cssText='position:sticky;top:0;z-index:9999;background:#16a34a;color:#fff;padding:12px 14px;text-align:center;font-weight:700;font-size:15px';
+      let head=document.querySelector('header')||document.body.firstChild;
+      if(head && head.parentNode) head.parentNode.insertBefore(el, head.nextSibling); else document.body.prepend(el);
+    }
+    let h=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    el.textContent = msg + ' • Dernier envoi : ' + h;
+    el.style.display='block';
+    try{ localStorage.setItem('zbrd_last_sync', h+' - '+msg); }catch(e){}
+  };
+  // Au rechargement, ré-affiche le dernier message
+  window.addEventListener('load', ()=>{
+    let last=''; try{ last=localStorage.getItem('zbrd_last_sync')||''; }catch(e){}
+    if(last){ let el=document.getElementById('zbrd-msg-fixe'); if(el){ el.textContent='✅ Dernier envoi : '+last; el.style.display='block'; } }
+  });
+})();
+</script>
 </body></html>
