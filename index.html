@@ -127,6 +127,10 @@ show(0);
   var SUPABASE_TABLE = 'zbrd_sync';
   var KEY_OK = SUPABASE_KEY && SUPABASE_KEY.indexOf('REPLACE_') !== 0;
   var schoolCode = '';
+  var AUTH_TOKEN = '';
+  try{ AUTH_TOKEN = localStorage.getItem('zbrd_auth_token')||''; }catch(e){}
+  var AUTH_UID = '';
+  try{ AUTH_UID = localStorage.getItem('zbrd_auth_uid')||''; }catch(e){}
   try{ schoolCode = (localStorage.getItem('zbrd_school_code')||'').trim().toUpperCase(); }catch(e){}
   function emptyDB(){ return {eleves:[],classes:[],devoirs:[],notes:[],abs:[],pay:[],act:[],ann:[],etab:{nom:'École — '+schoolCode,adr:'',tel:''}}; }
   function demoDB(){ return {eleves:[{n:'Salma Benali',c:'6ème A',p:'Mme Benali',t:'0600000001'},{n:'Youssef El Fassi',c:'5ème B',p:'M. El Fassi',t:'0600000002'},{n:'Imane Kadiri',c:'6ème A',p:'Mme Kadiri',t:'0600000003'},{n:'Adam Berrada',c:'4ème A',p:'M. Berrada',t:'0600000004'}],classes:[{n:'6ème A',e:28,pr:'Mme Alaoui'},{n:'5ème B',e:26,pr:'M. Berrada'},{n:'4ème A',e:30,pr:'Mme Tazi'}],devoirs:[{m:'Maths',t:'Chapitre 5',c:'6ème A',d:'Vendredi'},{m:'Français',t:'Rédaction',c:'5ème B',d:'Lundi'}],notes:[{e:'Salma Benali',m:'Maths',n:16},{e:'Youssef El Fassi',m:'Français',n:14},{e:'Imane Kadiri',m:'Sciences',n:15}],abs:[{e:'Imane Kadiri',d:"Aujourd'hui",mo:'Maladie - Justifiée'}],pay:[{e:'Salma Benali',m:800,s:'Payé'},{e:'Youssef El Fassi',m:800,s:'En attente'},{e:'Imane Kadiri',m:800,s:'En retard'},{e:'Adam Berrada',m:800,s:'Payé'}],act:[{n:'Sport',j:'Mercredi',i:22},{n:'Club Robotique',j:'Vendredi',i:14},{n:'Théâtre',j:'Samedi',i:18}],ann:['Réunion parents — Samedi 10h','Sortie scolaire — Jeudi','Examens — Semaine prochaine'],etab:{nom:'École Démo — Z-BrD DeV',adr:'Casablanca, Maroc',tel:'+212 780 71 70 90'}}; }
@@ -141,7 +145,17 @@ show(0);
   }
   var autoTimer = null, lastPush = '', lastPushOk = false;
 
-  function supHeaders(){ return {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'}; }
+  function supHeaders(){ return {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+(AUTH_TOKEN||SUPABASE_KEY),'Content-Type':'application/json'}; }
+  async function authLogin(email, password){
+    try{
+      var res=await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=password', {method:'POST', headers:{'apikey':SUPABASE_KEY,'Content-Type':'application/json'}, body: JSON.stringify({email:email, password:password})});
+      if(!res.ok) return false;
+      var j=await res.json(); AUTH_TOKEN=j.access_token||''; AUTH_UID=(j.user&&j.user.id)||'';
+      try{ localStorage.setItem('zbrd_auth_token', AUTH_TOKEN); localStorage.setItem('zbrd_auth_uid', AUTH_UID); }catch(e){}
+      return true;
+    }catch(e){ return false; }
+  }
+  function authLogout(){ AUTH_TOKEN=''; AUTH_UID=''; try{ localStorage.removeItem('zbrd_auth_token'); localStorage.removeItem('zbrd_auth_uid'); }catch(e){} }
   function setLabel(){
     var l=document.getElementById('schoolCodeLabel'); if(l) l.textContent = schoolCode || '— AUCUN CODE —';
     var s=document.getElementById('schoolCodeStatus'); if(s) s.textContent = schoolCode ? ('Code actuel : '+schoolCode+' — Tu travailles sur CETTE école uniquement.') : 'AUCUN CODE — entre ton code pour débloquer l’application.';
@@ -153,12 +167,21 @@ show(0);
     if(ov) return;
     ov=document.createElement('div'); ov.id='zbrdGate';
     ov.style.cssText='position:fixed;inset:0;z-index:9999;background:#0f2a5a;display:flex;align-items:center;justify-content:center;padding:20px';
-    ov.innerHTML='<div style="background:#fff;border-radius:18px;padding:26px;max-width:440px;width:100%;text-align:center"><h2 style="margin:0 0 8px;color:#0f2a5a">🔐 Code école obligatoire</h2><p style="color:#475569">Entre ton code école pour voir TES données. Sans code, tu ne vois rien.<br>Exemple démo : DEMO-2026<br>Test isolation : TEST-999</p><input id="gateCode" placeholder="Code école ex: DEMO-2026" autocomplete="off" style="width:100%;padding:13px;border:1px solid #cbd5e1;border-radius:10px;margin:10px 0;font-size:16px"><button id="gateBtn" style="width:100%;background:#0f2a5a;color:#fff;border:0;padding:13px;border-radius:10px;font-size:16px;cursor:pointer">Débloquer mon école →</button><p id="gateMsg" style="color:#dc2626;min-height:20px"></p><p style="font-size:12px;color:#475569">Tu n’as pas de code ? Contacte ton directeur / le PDG.<br>Ne donne jamais ton code à une autre école.</p></div>';
+    ov.innerHTML='<div style="background:#fff;border-radius:18px;padding:26px;max-width:440px;width:100%;text-align:center"><h2 style="margin:0 0 8px;color:#0f2a5a">🔐 Connexion école — V17 Sécurisée</h2><p style="color:#475569">École cliente : email + mot de passe + code école.<br>Démo : code seul, sans compte.<br>Démo visite : DEMO-VISITE<br>Démo officielle : DEMO-2026</p><input id="gateEmail" placeholder="Email école (client payant seulement)" autocomplete="off" style="width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:10px;margin:6px 0;font-size:15px"><input id="gatePass" type="password" placeholder="Mot de passe école" autocomplete="off" style="width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:10px;margin:6px 0;font-size:15px"><input id="gateCode" placeholder="Code école ex: DEMO-VISITE" autocomplete="off" style="width:100%;padding:13px;border:1px solid #cbd5e1;border-radius:10px;margin:6px 0;font-size:16px"><button id="gateBtn" style="width:100%;background:#0f2a5a;color:#fff;border:0;padding:13px;border-radius:10px;font-size:16px;cursor:pointer">Débloquer mon école →</button><p id="gateMsg" style="color:#dc2626;min-height:20px"></p><p style="font-size:12px;color:#475569">Compte client = créé par toi dans Supabase Auth. Ne partage jamais ton mot de passe.<br>Démo = sans compte, données fausses.</p></div>';
     document.body.appendChild(ov);
     var btn=document.getElementById('gateBtn');
-    btn.onclick=function(){
+    btn.onclick=async function(){
       var v=(document.getElementById('gateCode').value||'').trim().toUpperCase();
       if(!v){ document.getElementById('gateMsg').textContent='Écris ton code école.'; return; }
+      var isDemo = (v==='DEMO-2026'||v==='DEMO-VISITE');
+      if(!isDemo){
+        var em=(document.getElementById('gateEmail').value||'').trim();
+        var pw=document.getElementById('gatePass').value||'';
+        if(!em||!pw){ document.getElementById('gateMsg').textContent='École cliente : email + mot de passe obligatoires.'; return; }
+        document.getElementById('gateMsg').textContent='Vérification en cours…';
+        var okAuth=await authLogin(em,pw);
+        if(!okAuth){ document.getElementById('gateMsg').textContent='Email ou mot de passe incorrect.'; return; }
+      } else { authLogout(); }
       schoolCode=v;
       try{ localStorage.setItem('zbrd_school_code', schoolCode); }catch(e){}
       if(schoolCode==='DEMO-VISITE' && typeof DB!=='undefined'){ DB = demoDB(); try{ localStorage.setItem('zbrd_final_v10pwa', JSON.stringify(DB)); }catch(e){} }
@@ -174,6 +197,7 @@ show(0);
     if(!KEY_OK) return false;
     try{
       var payload={school_code:schoolCode, data:(typeof DB!=='undefined'?DB:null), updated_at:new Date().toISOString()};
+      if(AUTH_UID) payload.owner_id=AUTH_UID;
       var res=await fetch(SUPABASE_URL+'/rest/v1/'+SUPABASE_TABLE, {method:'POST', headers:supHeaders(), body: JSON.stringify(payload)});
       if(res.ok) return true;
       if(res.status===409){
