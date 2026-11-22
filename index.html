@@ -159,8 +159,14 @@ show(0);
   async function pushToCloud(){
     if(!KEY_OK) return false;
     try{
-      var res=await fetch(SUPABASE_URL+'/rest/v1/'+SUPABASE_TABLE, {method:'POST', headers:Object.assign({}, supHeaders(), {'Prefer':'resolution=merge-duplicates'}), body: JSON.stringify({school_code:schoolCode, school_id:'1f772548', data: (typeof DB!=='undefined'?DB:null), updated_at:new Date().toISOString()})});
-      return res.ok;
+      var payload={school_code:schoolCode, data:(typeof DB!=='undefined'?DB:null), updated_at:new Date().toISOString()};
+      var res=await fetch(SUPABASE_URL+'/rest/v1/'+SUPABASE_TABLE, {method:'POST', headers:supHeaders(), body: JSON.stringify(payload)});
+      if(res.ok) return true;
+      if(res.status===409){
+        var res2=await fetch(SUPABASE_URL+'/rest/v1/'+SUPABASE_TABLE+'?school_code=eq.'+encodeURIComponent(schoolCode), {method:'PATCH', headers:supHeaders(), body: JSON.stringify(payload)});
+        return res2.ok;
+      }
+      return false;
     }catch(e){ return false; }
   }
   async function pullFromCloud(){
