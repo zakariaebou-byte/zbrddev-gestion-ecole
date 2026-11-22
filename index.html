@@ -129,7 +129,10 @@ show(0);
   var schoolCode = '';
   try{ schoolCode = (localStorage.getItem('zbrd_school_code')||'').trim().toUpperCase(); }catch(e){}
   function emptyDB(){ return {eleves:[],classes:[],devoirs:[],notes:[],abs:[],pay:[],act:[],ann:[],etab:{nom:'École — '+schoolCode,adr:'',tel:''}}; }
-  if(schoolCode && schoolCode!=='DEMO-2026' && typeof DB!=='undefined'){
+  function demoDB(){ return {eleves:[{n:'Salma Benali',c:'6ème A',p:'Mme Benali',t:'0600000001'},{n:'Youssef El Fassi',c:'5ème B',p:'M. El Fassi',t:'0600000002'},{n:'Imane Kadiri',c:'6ème A',p:'Mme Kadiri',t:'0600000003'},{n:'Adam Berrada',c:'4ème A',p:'M. Berrada',t:'0600000004'}],classes:[{n:'6ème A',e:28,pr:'Mme Alaoui'},{n:'5ème B',e:26,pr:'M. Berrada'},{n:'4ème A',e:30,pr:'Mme Tazi'}],devoirs:[{m:'Maths',t:'Chapitre 5',c:'6ème A',d:'Vendredi'},{m:'Français',t:'Rédaction',c:'5ème B',d:'Lundi'}],notes:[{e:'Salma Benali',m:'Maths',n:16},{e:'Youssef El Fassi',m:'Français',n:14},{e:'Imane Kadiri',m:'Sciences',n:15}],abs:[{e:'Imane Kadiri',d:"Aujourd'hui",mo:'Maladie - Justifiée'}],pay:[{e:'Salma Benali',m:800,s:'Payé'},{e:'Youssef El Fassi',m:800,s:'En attente'},{e:'Imane Kadiri',m:800,s:'En retard'},{e:'Adam Berrada',m:800,s:'Payé'}],act:[{n:'Sport',j:'Mercredi',i:22},{n:'Club Robotique',j:'Vendredi',i:14},{n:'Théâtre',j:'Samedi',i:18}],ann:['Réunion parents — Samedi 10h','Sortie scolaire — Jeudi','Examens — Semaine prochaine'],etab:{nom:'École Démo — Z-BrD DeV',adr:'Casablanca, Maroc',tel:'+212 780 71 70 90'}}; }
+  // DEMO-VISITE : démo jetable, se réinitialise à chaque ouverture, ne touche jamais au serveur
+  if(schoolCode==='DEMO-VISITE' && typeof DB!=='undefined'){ DB = demoDB(); try{ localStorage.setItem('zbrd_final_v10pwa', JSON.stringify(DB)); }catch(e){} }
+  if(schoolCode && schoolCode!=='DEMO-2026' && schoolCode!=='DEMO-VISITE' && typeof DB!=='undefined'){
     try{
       var _hasServer = false;
       // Si on vient de DEMO ou d'un premier lancement, on ne garde jamais la démo pour un autre code
@@ -158,7 +161,8 @@ show(0);
       if(!v){ document.getElementById('gateMsg').textContent='Écris ton code école.'; return; }
       schoolCode=v;
       try{ localStorage.setItem('zbrd_school_code', schoolCode); }catch(e){}
-      if(schoolCode!=='DEMO-2026' && typeof DB!=='undefined'){ DB = emptyDB(); try{ localStorage.setItem('zbrd_final_v10pwa', JSON.stringify(DB)); }catch(e){} }
+      if(schoolCode==='DEMO-VISITE' && typeof DB!=='undefined'){ DB = demoDB(); try{ localStorage.setItem('zbrd_final_v10pwa', JSON.stringify(DB)); }catch(e){} }
+      else if(schoolCode!=='DEMO-2026' && typeof DB!=='undefined'){ DB = emptyDB(); try{ localStorage.setItem('zbrd_final_v10pwa', JSON.stringify(DB)); }catch(e){} }
       ov.remove(); setLabel();
       if(typeof flash==='function') flash('Code école enregistré ✅ — '+schoolCode);
       doRecover();
@@ -166,6 +170,7 @@ show(0);
     document.getElementById('gateCode').addEventListener('keydown', function(e){ if(e.key==='Enter') btn.onclick(); });
   }
   async function pushToCloud(){
+    if(schoolCode==='DEMO-VISITE') return false;
     if(!KEY_OK) return false;
     try{
       var payload={school_code:schoolCode, data:(typeof DB!=='undefined'?DB:null), updated_at:new Date().toISOString()};
@@ -179,6 +184,7 @@ show(0);
     }catch(e){ return false; }
   }
   async function pullFromCloud(){
+    if(schoolCode==='DEMO-VISITE') return false;
     if(!KEY_OK) return false;
     try{
       var res=await fetch(SUPABASE_URL+'/rest/v1/'+SUPABASE_TABLE+'?school_code=eq.'+encodeURIComponent(schoolCode)+'&select=data', {headers:supHeaders()});
@@ -198,7 +204,8 @@ show(0);
     if(!KEY_OK){ if(typeof flash==='function') flash('Récupérer : clé serveur à remplir par le PDG — données locales gardées ✅ — Code : '+schoolCode); return; }
     if(typeof flash==='function') flash('Récupération en cours… ne ferme pas.');
     var ok=await pullFromCloud();
-    if(!ok && schoolCode!=='DEMO-2026' && typeof DB!=='undefined'){ DB = emptyDB(); try{ localStorage.setItem('zbrd_final_v10pwa', JSON.stringify(DB)); }catch(e){} if(typeof show==='function') show(typeof idx!=='undefined'?idx:0); }
+    if(schoolCode==='DEMO-VISITE' && typeof DB!=='undefined'){ DB = demoDB(); try{ localStorage.setItem('zbrd_final_v10pwa', JSON.stringify(DB)); }catch(e){} if(typeof show==='function') show(typeof idx!=='undefined'?idx:0); }
+    if(!ok && schoolCode!=='DEMO-2026' && schoolCode!=='DEMO-VISITE' && typeof DB!=='undefined'){ DB = emptyDB(); try{ localStorage.setItem('zbrd_final_v10pwa', JSON.stringify(DB)); }catch(e){} if(typeof show==='function') show(typeof idx!=='undefined'?idx:0); }
     setLabel();
     if(typeof flash==='function'){
       if(ok) flash('Récupéré ✅ — '+((typeof DB!=='undefined'&&DB.eleves)?DB.eleves.length:0)+' élèves, '+((typeof DB!=='undefined'&&DB.pay)?DB.pay.reduce(function(a,p){return a+(p.m||0);},0):0)+' DH — Code : '+schoolCode);
@@ -209,6 +216,7 @@ show(0);
     try{ if(typeof save==='function') save(); }catch(e){}
     try{ localStorage.setItem('zbrd_backup_v162', JSON.stringify({code:schoolCode, at:new Date().toISOString(), data: (typeof DB!=='undefined'?DB:null)})); }catch(e){}
     if(!KEY_OK){ if(typeof flash==='function') flash('Sauvegarde locale ✅ — clé serveur à remplir par le PDG — Code : '+(schoolCode||'—')); return; }
+    if(schoolCode==='DEMO-VISITE'){ if(typeof flash==='function') flash('Démo visite — modifications locales seulement, démo réinitialisée à la prochaine ouverture ✅ — Code : '+schoolCode); return; }
     if(typeof flash==='function') flash('Sauvegarde en cours…');
     var ok=await pushToCloud();
     lastPush=new Date().toLocaleTimeString(); lastPushOk=ok;
@@ -221,7 +229,8 @@ show(0);
     if(!v){ if(typeof flash==='function') flash('Écris le nouveau code école.'); return; }
     schoolCode=v;
     try{ localStorage.setItem('zbrd_school_code', schoolCode); }catch(e){}
-    if(schoolCode!=='DEMO-2026' && typeof DB!=='undefined'){ DB = emptyDB(); try{ localStorage.setItem('zbrd_final_v10pwa', JSON.stringify(DB)); }catch(e){} }
+    if(schoolCode==='DEMO-VISITE' && typeof DB!=='undefined'){ DB = demoDB(); try{ localStorage.setItem('zbrd_final_v10pwa', JSON.stringify(DB)); }catch(e){} }
+    else if(schoolCode!=='DEMO-2026' && typeof DB!=='undefined'){ DB = emptyDB(); try{ localStorage.setItem('zbrd_final_v10pwa', JSON.stringify(DB)); }catch(e){} }
     setLabel();
     if(typeof flash==='function') flash('Code changé ✅ — '+schoolCode+' — Récupération en cours…');
     doRecover();
