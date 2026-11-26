@@ -1,0 +1,14 @@
+name: Auto Wake Supabase
+on:
+  schedule:
+    - cron: '0 8 */3 * *'
+  workflow_dispatch:
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping
+        env:
+          U: ${{ secrets.SUPABASE_URL }}
+          K: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: curl -s -f "$U/rest/v1/zbrd_sync?select=id&limit=1" -H "apikey: $K" -H "Authorization: Bearer $K"
